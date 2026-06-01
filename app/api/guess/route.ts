@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDailyEntity, getEntityByIndex } from '../../../lib/entities'
+import { getEntityForDate, getEntityByIndex } from '../../../lib/entities'
 import { parseFreeToken } from '../../../lib/token'
 
 export async function POST(req: NextRequest) {
-  const { guess, mode, token } = await req.json()
+  const { guess, mode, token, date } = await req.json()
 
   if (!guess || typeof guess !== 'string') {
     return NextResponse.json({ error: 'Chute inválido' }, { status: 400 })
@@ -11,7 +11,10 @@ export async function POST(req: NextRequest) {
 
   let secret: string
   if (mode === 'daily') {
-    secret = getDailyEntity().nome
+    const today = new Date().toISOString().slice(0, 10)
+    const gameDate = date ?? today
+    if (gameDate > today) return NextResponse.json({ error: 'Data inválida' }, { status: 400 })
+    secret = (await getEntityForDate(gameDate)).nome
   } else if (mode === 'free' && token) {
     const index = parseFreeToken(token)
     if (index === null) return NextResponse.json({ error: 'Token inválido' }, { status: 400 })

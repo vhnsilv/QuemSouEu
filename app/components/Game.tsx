@@ -1,15 +1,18 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import CalendarPicker from './CalendarPicker'
+import { markDayCompleted } from '../../lib/progress'
 
 type QA = { question: string; answer: string }
-type GameStatus = 'selecting' | 'playing' | 'won' | 'lost'
+type GameStatus = 'selecting' | 'calendar' | 'playing' | 'won' | 'lost'
 type InvalidWarning = { message: string } | null
 type GameMode = 'daily' | 'free'
 
 type GameSession = {
   mode: GameMode
   token: string | null
+  date: string | null
   categoria: string
   dificuldade: string
 }
@@ -29,18 +32,21 @@ export default function Game() {
     historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [qas])
 
-  async function startGame(mode: GameMode) {
+  async function startGame(mode: GameMode, date?: string) {
     setIsLoading(true)
     try {
+      const body: Record<string, string> = { mode }
+      if (date) body.date = date
       const res = await fetch('/api/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       setSession({
         mode,
         token: data.token ?? null,
+        date: data.date ?? null,
         categoria: data.categoria,
         dificuldade: data.dificuldade,
       })
@@ -62,7 +68,12 @@ export default function Game() {
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, mode: session.mode, token: session.token }),
+        body: JSON.stringify({
+          question: q,
+          mode: session.mode,
+          token: session.token,
+          date: session.date,
+        }),
       })
       const data = await res.json()
       const answer = data.answer ?? 'Não sei'
@@ -88,14 +99,25 @@ export default function Game() {
       const res = await fetch('/api/guess', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guess, mode: session.mode, token: session.token }),
+        body: JSON.stringify({
+          guess,
+          mode: session.mode,
+          token: session.token,
+          date: session.date,
+        }),
       })
       const data = await res.json()
       setSecret(data.secret ?? '')
       if (data.correct) {
+        if (session.mode === 'daily' && session.date) {
+          markDayCompleted(session.date)
+        }
         setStatus('won')
       } else {
         setQas(prev => [...prev, { question: `Chute: "${guess}"`, answer: 'Errado!' }])
+        if (session.mode === 'daily' && session.date) {
+          markDayCompleted(session.date)
+        }
         setStatus('lost')
       }
     } catch {
@@ -127,6 +149,15 @@ export default function Game() {
     'difícil': 'text-red-400',
   }
 
+  if (status === 'calendar') {
+    return (
+      <CalendarPicker
+        onSelect={date => startGame('daily', date)}
+        onBack={() => setStatus('selecting')}
+      />
+    )
+  }
+
   if (status === 'selecting') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-8 p-6 bg-gray-950 text-white">
@@ -146,6 +177,16 @@ export default function Game() {
             <span className="text-2xl">📅</span>
             <span className="text-lg">Desafio do Dia</span>
             <span className="text-xs text-blue-200 font-normal">A mesma entidade para todo mundo</span>
+          </button>
+
+          <button
+            onClick={() => setStatus('calendar')}
+            disabled={isLoading}
+            className="flex flex-col items-center gap-1 px-6 py-5 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-2xl font-semibold transition-colors"
+          >
+            <span className="text-2xl">🗓️</span>
+            <span className="text-lg">Dias anteriores</span>
+            <span className="text-xs text-gray-400 font-normal">Recupere desafios que perdeu</span>
           </button>
 
           <button
@@ -206,6 +247,8 @@ export default function Game() {
     )
   }
 
+  const isHistoricalDay = session?.mode === 'daily' && session.date !== new Date().toISOString().slice(0, 10)
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-950 text-white">
       {/* Header */}
@@ -214,7 +257,11 @@ export default function Game() {
           <h1 className="text-2xl font-bold tracking-tight">Quem Sou Eu?</h1>
           {session && (
             <p className="text-xs text-gray-500 mt-0.5">
-              {session.mode === 'daily' ? '📅 Desafio do Dia' : '🎲 Modo Livre'}
+              {session.mode === 'daily'
+                ? isHistoricalDay
+                  ? `🗓️ ${session.date}`
+                  : '📅 Desafio do Dia'
+                : '🎲 Modo Livre'}
               {' · '}
               <span className="capitalize">{session.categoria}</span>
               {' · '}
