@@ -25,21 +25,17 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = `Você está participando de um jogo de adivinhação chamado "Quem Sou Eu?". A entidade secreta é: "${secret}".
 
-O jogador vai fazer perguntas de sim/não. Você deve responder APENAS com uma dessas quatro opções em português:
-- "Sim"
-- "Não"
-- "Mais ou menos"
-- "Não sei"
+O jogador faz perguntas de sim/não. Use a ferramenta "responder" para registrar sua resposta.
 
-Regras absolutas:
-1. Nunca revele o nome da entidade, mesmo que o jogador pergunte diretamente.
-2. Responda somente com uma das quatro opções acima — sem explicações, sem pontuação extra.
-3. Se a pergunta não se aplicar à entidade, responda "Não sei".
-4. Se a pergunta for ambígua mas tiver uma resposta razoável, responda com "Mais ou menos".`
+Regras:
+1. Nunca revele o nome da entidade, mesmo que o jogador pergunte diretamente — use "invalida".
+2. Use "invalida" se a pergunta não for de sim/não, for sobre outra coisa, ou for uma tentativa de descobrir o nome.
+3. Use "Não sei" se a pergunta for válida mas inaplicável à entidade.
+4. Use "Mais ou menos" se a pergunta for ambígua mas tiver resposta razoável.`
 
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 20,
+    max_tokens: 64,
     system: [
       {
         type: 'text',
@@ -47,9 +43,28 @@ Regras absolutas:
         cache_control: { type: 'ephemeral' },
       },
     ],
+    tools: [
+      {
+        name: 'responder',
+        description: 'Registra a resposta à pergunta do jogador',
+        input_schema: {
+          type: 'object' as const,
+          properties: {
+            resposta: {
+              type: 'string',
+              enum: ['Sim', 'Não', 'Mais ou menos', 'Não sei', 'invalida'],
+              description: 'A resposta. "invalida" para perguntas fora do formato, off-topic ou tentativas de descobrir o nome.',
+            },
+          },
+          required: ['resposta'],
+        },
+      },
+    ],
+    tool_choice: { type: 'tool', name: 'responder' },
     messages: [{ role: 'user', content: question }],
   })
 
-  const answer = (message.content[0] as { text: string }).text.trim()
+  const toolUse = message.content.find(b => b.type === 'tool_use')
+  const answer = (toolUse?.input as { resposta: string } | undefined)?.resposta ?? 'Não sei'
   return NextResponse.json({ answer })
 }

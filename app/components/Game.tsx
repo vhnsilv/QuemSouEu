@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 
 type QA = { question: string; answer: string }
 type GameStatus = 'selecting' | 'playing' | 'won' | 'lost'
+type InvalidWarning = { message: string } | null
 type GameMode = 'daily' | 'free'
 
 type GameSession = {
@@ -21,6 +22,7 @@ export default function Game() {
   const [guessMode, setGuessMode] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [secret, setSecret] = useState('')
+  const [warning, setWarning] = useState<InvalidWarning>(null)
   const historyEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function Game() {
     const q = input.trim()
     if (!q || isLoading || !session) return
     setInput('')
+    setWarning(null)
     setIsLoading(true)
     try {
       const res = await fetch('/api/ask', {
@@ -63,9 +66,14 @@ export default function Game() {
       })
       const data = await res.json()
       const answer = data.answer ?? 'Não sei'
-      setQas(prev => [...prev, { question: q, answer }])
+      if (answer === 'invalida') {
+        setWarning({ message: 'Faça uma pergunta de sim/não sobre a entidade! Para adivinhar o nome, use o botão "Fazer chute final".' })
+      } else {
+        setWarning(null)
+        setQas(prev => [...prev, { question: q, answer }])
+      }
     } catch {
-      setQas(prev => [...prev, { question: q, answer: 'Erro ao obter resposta. Tente novamente.' }])
+      setWarning({ message: 'Erro ao obter resposta. Tente novamente.' })
     } finally {
       setIsLoading(false)
     }
@@ -110,6 +118,7 @@ export default function Game() {
     setStatus('selecting')
     setSession(null)
     setSecret('')
+    setWarning(null)
   }
 
   const dificuldadeCor: Record<string, string> = {
@@ -240,6 +249,11 @@ export default function Game() {
             </div>
           </div>
         ))}
+        {warning && !isLoading && (
+          <div className="self-start bg-orange-900/40 border border-orange-700 rounded-2xl rounded-tl-sm px-4 py-2 max-w-sm text-sm text-orange-300">
+            ⚠️ {warning.message}
+          </div>
+        )}
         {isLoading && (
           <div className="flex flex-col gap-1">
             <div className="self-start bg-gray-700 rounded-2xl rounded-tl-sm px-4 py-2 max-w-xs text-sm text-gray-400 italic">
