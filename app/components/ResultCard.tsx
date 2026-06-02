@@ -51,8 +51,10 @@ function buildShareText(props: Props): string {
 }
 
 export default function ResultCard(props: Props) {
-  const { won, questions, mode, date, streak, secret, onRestart } = props
+  const { won, questions, answers, mode, date, streak, secret, onRestart } = props
   const [copied, setCopied] = useState(false)
+
+  const emojiGrid = answers.map(a => ANSWER_EMOJI[a]).filter(Boolean).join('')
 
   async function handleCopy() {
     const text = buildShareText(props)
@@ -66,57 +68,70 @@ export default function ResultCard(props: Props) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6 bg-gray-950 text-white">
-      <div className="text-6xl">{won ? '🎉' : '😔'}</div>
+    <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6 bg-[#0d0a1e] text-[#f0eeff] animate-fade-up">
+      <div className="text-6xl animate-bounce-in">{won ? '🎉' : '😔'}</div>
 
-      <div className="text-center space-y-1">
-        <h1 className={`text-3xl font-bold ${won ? 'text-green-400' : 'text-red-400'}`}>
+      <div className="text-center space-y-2">
+        <h1 className={`text-3xl font-bold ${
+          won
+            ? 'bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent'
+            : 'text-rose-400'
+        }`}>
           {won ? 'Parabéns!' : 'Quase lá...'}
         </h1>
         {won ? (
-          <p className="text-lg text-gray-300">
-            Você descobriu que sou <span className="font-bold text-white">{secret}</span>!
+          <p className="text-lg text-[#9d8ec8]">
+            Você descobriu que sou <span className="font-bold text-[#f0eeff]">{secret}</span>!
           </p>
         ) : (
-          <p className="text-lg text-gray-300">
-            Era <span className="font-bold text-white">{secret}</span>. Tente amanhã!
+          <p className="text-lg text-[#9d8ec8]">
+            Era <span className="font-bold text-[#f0eeff]">{secret}</span>. Tente amanhã!
           </p>
         )}
       </div>
 
-      <div className="flex gap-6 text-center">
+      <div className={`flex gap-6 text-center bg-[#1a1433] border rounded-2xl px-8 py-4 ${
+        won ? 'border-emerald-800/50' : 'border-[#352a60]'
+      }`}>
         <div>
-          <p className="text-2xl font-bold text-yellow-400">{questions}</p>
-          <p className="text-xs text-gray-400">pergunta{questions !== 1 ? 's' : ''}</p>
+          <p className="text-2xl font-bold text-amber-400">{questions}</p>
+          <p className="text-xs text-[#9d8ec8]">pergunta{questions !== 1 ? 's' : ''}</p>
         </div>
         {mode === 'daily' && streak > 0 && (
-          <div>
-            <p className="text-2xl font-bold text-orange-400">🔥 {streak}</p>
-            <p className="text-xs text-gray-400">dia{streak !== 1 ? 's' : ''} seguido{streak !== 1 ? 's' : ''}</p>
-          </div>
+          <>
+            <div className="w-px bg-[#352a60]" />
+            <div>
+              <p className="text-2xl font-bold text-orange-400">🔥 {streak}</p>
+              <p className="text-xs text-[#9d8ec8]">dia{streak !== 1 ? 's' : ''} seguido{streak !== 1 ? 's' : ''}</p>
+            </div>
+          </>
         )}
       </div>
 
+      {emojiGrid && (
+        <div className="text-2xl tracking-wider">{emojiGrid}</div>
+      )}
+
       {mode === 'daily' && date && (
-        <p className="text-xs text-gray-500">📅 {formatDate(date)}</p>
+        <p className="text-xs text-[#9d8ec8]">📅 {formatDate(date)}</p>
       )}
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
           onClick={handleCopy}
-          className="w-full py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-semibold text-sm transition-colors"
+          className="w-full py-3 bg-[#241c45] border border-[#352a60] hover:bg-[#2d2255] rounded-xl font-semibold text-sm transition-all min-h-[44px]"
         >
-          {copied ? 'Copiado! ✓' : '📋 Copiar resultado'}
+          {copied ? '✓ Copiado!' : '📋 Copiar resultado'}
         </button>
         <button
           onClick={onRestart}
-          className={`w-full py-3 rounded-xl font-semibold text-sm transition-colors ${
+          className={`w-full py-3 rounded-xl font-semibold text-sm transition-all min-h-[44px] ${
             won
-              ? 'bg-green-600 hover:bg-green-500'
-              : 'bg-gray-800 hover:bg-gray-700'
+              ? 'bg-gradient-to-br from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
+              : 'bg-[#241c45] border border-[#352a60] hover:bg-[#2d2255]'
           }`}
         >
-          {won ? 'Jogar novamente' : 'Tentar novamente'}
+          {won ? '🎮 Jogar novamente' : '🔄 Tentar novamente'}
         </button>
       </div>
     </div>
