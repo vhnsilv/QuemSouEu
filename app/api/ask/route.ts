@@ -28,13 +28,28 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = `Você está participando de um jogo de adivinhação chamado "Quem Sou Eu?". A entidade secreta é: "${secret}".
 
-O jogador faz perguntas de sim/não. Use a ferramenta "responder" para registrar sua resposta.
+O jogador só pode fazer perguntas de sim/não. Use a ferramenta "responder" para registrar sua resposta.
 
-Regras:
-1. Nunca revele o nome da entidade, mesmo que o jogador pergunte diretamente — use "invalida".
-2. Use "invalida" se a pergunta não for de sim/não, for sobre outra coisa, ou for uma tentativa de descobrir o nome.
-3. Use "Não sei" se a pergunta for válida mas inaplicável à entidade.
-4. Use "Mais ou menos" se a pergunta for ambígua mas tiver resposta razoável.`
+REGRA MAIS IMPORTANTE — use "invalida" nos seguintes casos (sem exceção):
+- A pergunta começa com palavras abertas como "qual", "quem", "onde", "quando", "quanto", "como", "por que", "me diga", "diga", "liste", "cite" — essas NÃO são perguntas de sim/não.
+- A pergunta tenta descobrir o nome diretamente, como "é X?", "você é X?", "o nome começa com...".
+- A pergunta pede informações abertas sobre a entidade ao invés de confirmar um fato com sim/não.
+
+Exemplos de perguntas INVÁLIDAS → "invalida":
+- "Qual o país em que nasceu?" → invalida
+- "Onde ele nasceu?" → invalida
+- "Quando ele nasceu?" → invalida
+- "Qual é o nome dele?" → invalida
+- "Me diga algo sobre ele" → invalida
+
+Exemplos de perguntas VÁLIDAS → "Sim" ou "Não":
+- "Ele nasceu no Brasil?" → Sim ou Não
+- "É uma mulher?" → Sim ou Não
+- "É vivo atualmente?" → Sim ou Não
+
+Demais regras:
+- Use "Não sei" se a pergunta for válida (sim/não) mas você não souber a resposta para essa entidade específica.
+- Use "Mais ou menos" apenas se a pergunta for de sim/não mas a resposta for genuinamente ambígua.`
 
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',

@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import CalendarPicker from './CalendarPicker'
-import { markDayCompleted } from '../../lib/progress'
+import ResultCard from './ResultCard'
+import { markDayCompleted, saveResult, getStreak } from '../../lib/progress'
 
 type QA = { question: string; answer: string }
 type GameStatus = 'selecting' | 'calendar' | 'playing' | 'won' | 'lost'
@@ -26,7 +27,12 @@ export default function Game() {
   const [isLoading, setIsLoading] = useState(false)
   const [secret, setSecret] = useState('')
   const [warning, setWarning] = useState<InvalidWarning>(null)
+  const [streak, setStreak] = useState(0)
   const historyEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setStreak(getStreak())
+  }, [])
 
   useEffect(() => {
     historyEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -107,16 +113,24 @@ export default function Game() {
         }),
       })
       const data = await res.json()
-      setSecret(data.secret ?? '')
       if (data.correct) {
+        setSecret(guess)
         if (session.mode === 'daily' && session.date) {
           markDayCompleted(session.date)
+          saveResult({ date: session.date, won: true, questions: qas.length, mode: 'daily' })
+        } else if (session.mode === 'free') {
+          saveResult({ date: 'free', won: true, questions: qas.length, mode: 'free' })
         }
+        setStreak(getStreak())
         setStatus('won')
       } else {
+        if (data.secret) setSecret(data.secret)
         setQas(prev => [...prev, { question: `Chute: "${guess}"`, answer: 'Errado!' }])
         if (session.mode === 'daily' && session.date) {
           markDayCompleted(session.date)
+          saveResult({ date: session.date, won: false, questions: qas.length + 1, mode: 'daily' })
+        } else if (session.mode === 'free') {
+          saveResult({ date: 'free', won: false, questions: qas.length + 1, mode: 'free' })
         }
         setStatus('lost')
       }
@@ -141,6 +155,7 @@ export default function Game() {
     setSession(null)
     setSecret('')
     setWarning(null)
+    setStreak(getStreak())
   }
 
   const dificuldadeCor: Record<string, string> = {
@@ -200,50 +215,32 @@ export default function Game() {
           </button>
         </div>
 
+        {streak > 0 && (
+          <p className="text-sm text-orange-400 font-semibold">
+            🔥 Sequência: {streak} dia{streak !== 1 ? 's' : ''} seguido{streak !== 1 ? 's' : ''}
+          </p>
+        )}
+
         {isLoading && <p className="text-gray-500 text-sm">Carregando...</p>}
       </div>
     )
   }
 
-  if (status === 'won') {
+  if (status === 'won' || status === 'lost') {
+    const validAnswers = qas
+      .filter(qa => !qa.question.startsWith('Chute:'))
+      .map(qa => qa.answer)
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6 bg-gray-950 text-white">
-        <div className="text-6xl">🎉</div>
-        <h1 className="text-3xl font-bold text-green-400">Parabéns!</h1>
-        <p className="text-lg text-gray-300">
-          Você descobriu que sou <span className="font-bold text-white">{secret}</span>!
-        </p>
-        <p className="text-gray-400">
-          Você usou <span className="font-bold text-yellow-400">{qas.length}</span> pergunta{qas.length !== 1 ? 's' : ''}.
-        </p>
-        <button
-          onClick={handleRestart}
-          className="mt-4 px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-semibold transition-colors"
-        >
-          Jogar novamente
-        </button>
-      </div>
-    )
-  }
-
-  if (status === 'lost') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6 bg-gray-950 text-white">
-        <div className="text-6xl">😔</div>
-        <h1 className="text-3xl font-bold text-red-400">Quase lá...</h1>
-        <p className="text-lg text-gray-300">
-          A resposta era <span className="font-bold text-white">{secret}</span>.
-        </p>
-        <p className="text-gray-400">
-          Você usou <span className="font-bold text-yellow-400">{qas.length}</span> pergunta{qas.length !== 1 ? 's' : ''}.
-        </p>
-        <button
-          onClick={handleRestart}
-          className="mt-4 px-6 py-3 bg-red-600 hover:bg-red-500 rounded-lg font-semibold transition-colors"
-        >
-          Tentar novamente
-        </button>
-      </div>
+      <ResultCard
+        won={status === 'won'}
+        questions={validAnswers.length}
+        answers={validAnswers}
+        mode={session?.mode ?? 'free'}
+        date={session?.date ?? null}
+        streak={streak}
+        secret={secret}
+        onRestart={handleRestart}
+      />
     )
   }
 

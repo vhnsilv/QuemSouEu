@@ -63,5 +63,5 @@ export async function POST(req: NextRequest) {
   }
 
   const correct = guess.trim().toLowerCase() === secret.toLowerCase()
-  return NextResponse.json({ correct, secret })
+  return NextResponse.json({ correct, secret: correct ? undefined : secret })
 }
